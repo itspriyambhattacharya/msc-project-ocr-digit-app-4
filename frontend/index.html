@@ -1,0 +1,1112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sudoku OCR Solver</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --ink: #1a1814;
+        --ink-mid: #4a4740;
+        --ink-light: #9a958e;
+        --paper: #f5f2ec;
+        --paper-warm: #ede8df;
+        --paper-mid: #ddd8ce;
+        --accent: #2c5f3e;
+        --accent-lt: #e8f0eb;
+        --accent-mid: #4a8c62;
+        --red: #8c2c2c;
+        --red-lt: #f0e8e8;
+        --gold: #8c6f2c;
+        --gold-lt: #f5f0e0;
+        --blue: #1e3a6e;
+        --blue-lt: #e8eef8;
+        --border: #c8c3b8;
+        --cell-size: 52px;
+        --radius: 6px;
+        --mono: "DM Mono", monospace;
+        --serif: "Fraunces", Georgia, serif;
+      }
+      html {
+        font-size: 16px;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--mono);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      /* HEADER */
+      header {
+        width: 100%;
+        padding: 1.5rem 2rem 1rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: flex-end;
+        gap: 1rem;
+        background: var(--paper-warm);
+        flex-wrap: wrap;
+      }
+      .logo-title {
+        font-family: var(--serif);
+        font-size: 1.9rem;
+        font-weight: 600;
+        color: var(--ink);
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
+      .logo-title em {
+        font-style: italic;
+        color: var(--accent);
+      }
+      .logo-sub {
+        font-size: 0.65rem;
+        color: var(--ink-light);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding-bottom: 3px;
+      }
+      .step-pills {
+        margin-left: auto;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .step-pill {
+        font-size: 0.62rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 4px 10px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        color: var(--ink-light);
+        background: transparent;
+        transition: all 0.2s;
+      }
+      .step-pill.active {
+        background: var(--ink);
+        color: var(--paper);
+        border-color: var(--ink);
+      }
+      .step-pill.done {
+        background: var(--accent-lt);
+        color: var(--accent);
+        border-color: var(--accent-mid);
+      }
+
+      /* OCR MODE BADGE */
+      #ocr-mode-badge {
+        font-size: 0.62rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 3px 10px;
+        border-radius: 20px;
+        display: none;
+        align-items: center;
+        gap: 5px;
+      }
+      #ocr-mode-badge.cnn {
+        background: var(--accent-lt);
+        color: var(--accent);
+        border: 1px solid var(--accent-mid);
+      }
+      #ocr-mode-badge.knn {
+        background: var(--gold-lt);
+        color: var(--gold);
+        border: 1px solid var(--gold);
+      }
+
+      /* MAIN */
+      main {
+        width: 100%;
+        max-width: 920px;
+        padding: 1.75rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      /* SECTION LABEL */
+      .section-label {
+        font-size: 0.62rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink-light);
+        margin-bottom: 0.6rem;
+      }
+
+      /* UPLOAD */
+      #panel-upload {
+      }
+      .upload-zone {
+        border: 1.5px dashed var(--border);
+        border-radius: var(--radius);
+        padding: 2.25rem 2rem;
+        text-align: center;
+        cursor: pointer;
+        background: var(--paper-warm);
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+        position: relative;
+      }
+      .upload-zone:hover,
+      .upload-zone.drag-over {
+        border-color: var(--accent-mid);
+        background: var(--accent-lt);
+      }
+      .upload-zone input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        width: 100%;
+        height: 100%;
+      }
+      .upload-icon {
+        width: 44px;
+        height: 44px;
+        margin: 0 auto 0.9rem;
+        border: 1.5px solid var(--border);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--paper);
+      }
+      .upload-icon svg {
+        width: 20px;
+        height: 20px;
+        stroke: var(--ink-mid);
+        fill: none;
+        stroke-width: 1.5;
+      }
+      .upload-title {
+        font-family: var(--serif);
+        font-size: 1.05rem;
+        font-weight: 300;
+        color: var(--ink);
+        margin-bottom: 4px;
+      }
+      .upload-hint {
+        font-size: 0.72rem;
+        color: var(--ink-light);
+        margin-bottom: 1rem;
+      }
+
+      /* STATUS BAR */
+      #status-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: var(--radius);
+        font-size: 0.73rem;
+        margin-top: 0.9rem;
+        min-height: 36px;
+        border: 1px solid transparent;
+        transition: all 0.3s;
+      }
+      #status-bar.idle {
+        background: var(--paper-warm);
+        border-color: var(--border);
+        color: var(--ink-light);
+      }
+      #status-bar.loading {
+        background: var(--gold-lt);
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      #status-bar.success {
+        background: var(--accent-lt);
+        border-color: var(--accent-mid);
+        color: var(--accent);
+      }
+      #status-bar.error {
+        background: var(--red-lt);
+        border-color: var(--red);
+        color: var(--red);
+      }
+      .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: currentColor;
+      }
+      .status-dot.spin {
+        animation: blink 1s infinite;
+      }
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.25;
+        }
+      }
+
+      /* BOARD PANEL */
+      #panel-board {
+        display: none;
+      }
+      #panel-board.visible {
+        display: block;
+      }
+
+      .board-area {
+        display: flex;
+        gap: 2rem;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+
+      /* GRID */
+      #grid {
+        display: grid;
+        grid-template-columns: repeat(9, var(--cell-size));
+        grid-template-rows: repeat(9, var(--cell-size));
+        border: 2.5px solid var(--ink);
+        border-radius: 4px;
+        overflow: hidden;
+        flex-shrink: 0;
+        background: var(--paper);
+      }
+
+      .cell {
+        width: var(--cell-size);
+        height: var(--cell-size);
+        border: 0.5px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--mono);
+        font-size: 1.2rem;
+        font-weight: 500;
+        cursor: pointer;
+        background: var(--paper);
+        color: var(--ink);
+        transition: background 0.1s;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .cell[data-col="2"],
+      .cell[data-col="5"] {
+        border-right: 2px solid var(--ink);
+      }
+      .cell[data-row="2"],
+      .cell[data-row="5"] {
+        border-bottom: 2px solid var(--ink);
+      }
+      .cell.given {
+        background: var(--paper-warm);
+        color: var(--ink);
+        cursor: default;
+      }
+      .cell.user-filled {
+        color: var(--accent);
+        cursor: pointer;
+      }
+      .cell.solved-fill {
+        color: var(--accent-mid);
+      }
+      .cell.selected {
+        background: #dbeafe !important;
+        outline: 2px solid #3b82f6;
+        z-index: 2;
+      }
+      .cell.highlight {
+        background: #eff6ff;
+      }
+      .cell.conflict {
+        background: var(--red-lt) !important;
+        color: var(--red) !important;
+      }
+      .cell:not(.given):hover:not(.selected) {
+        background: var(--paper-mid);
+      }
+
+      /* CONTROLS */
+      .controls {
+        display: flex;
+        flex-direction: column;
+        gap: 1.4rem;
+        min-width: 180px;
+      }
+      .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+
+      /* NUMPAD */
+      #numpad {
+        display: grid;
+        grid-template-columns: repeat(3, 52px);
+        gap: 6px;
+      }
+      .numkey {
+        width: 52px;
+        height: 52px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--paper-warm);
+        font-family: var(--mono);
+        font-size: 1.15rem;
+        font-weight: 500;
+        color: var(--ink);
+        cursor: pointer;
+        transition: all 0.1s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .numkey:hover {
+        background: var(--paper-mid);
+        border-color: var(--ink-mid);
+      }
+      .numkey:active {
+        transform: scale(0.92);
+      }
+      .numkey.del-key {
+        font-size: 0.72rem;
+        color: var(--ink-light);
+        letter-spacing: 0.03em;
+      }
+
+      /* BUTTONS */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: var(--radius);
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        cursor: pointer;
+        transition: all 0.15s;
+        border: 1px solid var(--border);
+        background: var(--paper);
+        color: var(--ink);
+        letter-spacing: 0.02em;
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .btn:hover {
+        background: var(--paper-mid);
+      }
+      .btn:active {
+        transform: scale(0.97);
+      }
+      .btn-accent {
+        background: var(--accent);
+        color: var(--paper);
+        border-color: var(--accent);
+      }
+      .btn-accent:hover {
+        background: var(--accent-mid);
+      }
+
+      /* CORRECTION NOTICE */
+      #correction-notice {
+        display: none;
+        padding: 9px 12px;
+        background: var(--blue-lt);
+        border: 1px solid #b8c8e8;
+        border-radius: var(--radius);
+        font-size: 0.72rem;
+        color: var(--blue);
+        margin-top: 0.75rem;
+        line-height: 1.5;
+      }
+      #correction-notice.visible {
+        display: block;
+      }
+
+      /* CELEBRATION */
+      #celebration {
+        display: none;
+        margin-top: 1rem;
+        padding: 12px 16px;
+        background: var(--accent-lt);
+        border: 1px solid var(--accent-mid);
+        border-radius: var(--radius);
+        font-size: 0.78rem;
+        color: var(--accent);
+        text-align: center;
+      }
+      #celebration.visible {
+        display: block;
+        animation: slide-in 0.35s ease;
+      }
+      #celebration .big {
+        font-family: var(--serif);
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin-bottom: 3px;
+      }
+      @keyframes slide-in {
+        from {
+          opacity: 0;
+          transform: translateY(-6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* RESPONSIVE */
+      @media (max-width: 640px) {
+        :root {
+          --cell-size: 38px;
+        }
+        main {
+          padding: 1rem;
+        }
+        .board-area {
+          flex-direction: column;
+        }
+        .controls {
+          flex-direction: row;
+          flex-wrap: wrap;
+          gap: 1rem;
+          min-width: unset;
+        }
+        #numpad {
+          grid-template-columns: repeat(5, 44px);
+        }
+        .numkey {
+          width: 44px;
+          height: 44px;
+          font-size: 1rem;
+        }
+        .logo-title {
+          font-size: 1.4rem;
+        }
+        .step-pills {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <div class="logo-title">Sudoku <em>OCR</em> Solver</div>
+        <div class="logo-sub">MSc Project — PyTorch + OpenCV</div>
+      </div>
+      <div
+        style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap"
+      >
+        <div id="ocr-mode-badge">
+          <span
+            id="ocr-mode-dot"
+            style="
+              width: 6px;
+              height: 6px;
+              border-radius: 50%;
+              background: currentColor;
+              display: inline-block;
+            "
+          ></span>
+          <span id="ocr-mode-text">CNN</span>
+        </div>
+        <div class="step-pills">
+          <div class="step-pill active" id="pill-1">① Upload</div>
+          <div class="step-pill" id="pill-2">② Verify</div>
+          <div class="step-pill" id="pill-3">③ Solve</div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- UPLOAD PANEL -->
+      <div id="panel-upload">
+        <div class="section-label">
+          Step 1 — Upload a sudoku image from newspaper / photo
+        </div>
+        <div class="upload-zone" id="upload-zone">
+          <input
+            type="file"
+            id="file-input"
+            accept="image/jpeg,image/png,image/webp,image/bmp"
+          />
+          <div class="upload-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+          </div>
+          <div class="upload-title">Upload image of sudoku to solve</div>
+          <div class="upload-hint">
+            Drag &amp; drop or click — JPEG, PNG, BMP supported
+          </div>
+          <button
+            class="btn btn-accent"
+            style="width: auto; margin: 0 auto; pointer-events: none"
+          >
+            Choose image
+          </button>
+        </div>
+        <div id="status-bar" class="idle">
+          <div class="status-dot" id="status-dot"></div>
+          <span id="status-text">Waiting for image upload…</span>
+        </div>
+      </div>
+
+      <!-- BOARD PANEL -->
+      <div id="panel-board">
+        <div class="section-label">
+          Step 2 — Verify OCR result &amp; correct any wrong digits
+        </div>
+
+        <div class="board-area">
+          <!-- Grid -->
+          <div id="grid"></div>
+
+          <!-- Controls -->
+          <div class="controls">
+            <div class="control-group">
+              <div class="section-label">Number pad</div>
+              <div id="numpad"></div>
+            </div>
+            <div class="control-group">
+              <div class="section-label">Actions</div>
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <button class="btn btn-accent" onclick="App.solve()">
+                  ▶&nbsp; Solve puzzle
+                </button>
+                <button class="btn" onclick="App.resetToGiven()">
+                  ↺&nbsp; Reset to OCR result
+                </button>
+                <button class="btn" onclick="App.clearAll()">
+                  ✕&nbsp; Clear board
+                </button>
+                <button
+                  class="btn"
+                  onclick="App.uploadNew()"
+                  style="margin-top: 6px"
+                >
+                  ⤴&nbsp; Upload new image
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Correction notice -->
+        <div id="correction-notice" class="visible">
+          <strong>Tip:</strong> Click any cell to select it, then tap a number
+          to correct it. Cells with wrong OCR digits are <em>not</em> locked —
+          you can freely edit them. After correcting, press
+          <strong>Solve puzzle</strong>.
+        </div>
+
+        <!-- Celebration -->
+        <div id="celebration">
+          <div class="big">Puzzle Solved!</div>
+          <div>All 81 cells filled — solution verified correct.</div>
+        </div>
+
+        <div
+          id="status-bar-board"
+          style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.73rem;
+            margin-top: 0.9rem;
+            min-height: 36px;
+            border: 1px solid transparent;
+          "
+        ></div>
+      </div>
+    </main>
+
+    <script>
+      const App = (() => {
+        const API = window.location.origin;
+
+        let board = Array(81).fill(0);
+        let given = Array(81).fill(false); // locked = came from OCR
+        let selected = -1;
+
+        // DOM
+        const uploadZone = document.getElementById("upload-zone");
+        const fileInput = document.getElementById("file-input");
+        const panelUpload = document.getElementById("panel-upload");
+        const panelBoard = document.getElementById("panel-board");
+        const celebrationEl = document.getElementById("celebration");
+        const correctionNote = document.getElementById("correction-notice");
+
+        // ── Status ─────────────────────────────────────────────────
+        function setStatus(state, text, boardPanel = false) {
+          const barId = boardPanel ? "status-bar-board" : "status-bar";
+          const bar = document.getElementById(barId);
+          const dotId = boardPanel ? null : "status-dot";
+          const txtId = boardPanel ? null : "status-text";
+
+          const colors = {
+            idle: "background:var(--paper-warm);border-color:var(--border);color:var(--ink-light)",
+            loading:
+              "background:var(--gold-lt);border-color:var(--gold);color:var(--gold)",
+            success:
+              "background:var(--accent-lt);border-color:var(--accent-mid);color:var(--accent)",
+            error:
+              "background:var(--red-lt);border-color:var(--red);color:var(--red)",
+          };
+          bar.style.cssText = colors[state] || colors.idle;
+
+          if (boardPanel) {
+            bar.innerHTML = text
+              ? `<span style="width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;display:inline-block"></span><span>${text}</span>`
+              : "";
+          } else {
+            if (dotId) {
+              const dot = document.getElementById(dotId);
+              dot.className =
+                "status-dot" + (state === "loading" ? " spin" : "");
+            }
+            if (txtId) document.getElementById(txtId).textContent = text;
+          }
+        }
+
+        function setPills(step) {
+          ["pill-1", "pill-2", "pill-3"].forEach((id, i) => {
+            const el = document.getElementById(id);
+            el.className =
+              "step-pill" +
+              (i + 1 < step ? " done" : i + 1 === step ? " active" : "");
+          });
+        }
+
+        function setOcrBadge(mode) {
+          const badge = document.getElementById("ocr-mode-badge");
+          const text = document.getElementById("ocr-mode-text");
+          badge.style.display = "flex";
+          if (mode === "cnn") {
+            badge.className = "ocr-mode-badge cnn";
+            badge.style.cssText =
+              "display:flex;align-items:center;gap:5px;font-size:0.62rem;letter-spacing:0.08em;text-transform:uppercase;padding:3px 10px;border-radius:20px;background:var(--accent-lt);color:var(--accent);border:1px solid var(--accent-mid)";
+            text.textContent = "CNN OCR active";
+          } else {
+            badge.style.cssText =
+              "display:flex;align-items:center;gap:5px;font-size:0.62rem;letter-spacing:0.08em;text-transform:uppercase;padding:3px 10px;border-radius:20px;background:var(--gold-lt);color:var(--gold);border:1px solid var(--gold)";
+            text.textContent = "kNN OCR (train.py pending)";
+          }
+        }
+
+        // ── Build grid ─────────────────────────────────────────────
+        function buildGrid() {
+          const el = document.getElementById("grid");
+          el.innerHTML = "";
+          for (let i = 0; i < 81; i++) {
+            const r = Math.floor(i / 9),
+              c = i % 9;
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.id = "cell-" + i;
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+            cell.addEventListener("click", () => selectCell(i));
+            el.appendChild(cell);
+          }
+        }
+
+        // ── Build numpad ───────────────────────────────────────────
+        function buildNumpad() {
+          const el = document.getElementById("numpad");
+          el.innerHTML = "";
+          for (let n = 1; n <= 9; n++) {
+            const btn = document.createElement("button");
+            btn.className = "numkey";
+            btn.textContent = n;
+            btn.addEventListener("click", () => enterNum(n));
+            el.appendChild(btn);
+          }
+          const era = document.createElement("button");
+          era.className = "numkey del-key";
+          era.textContent = "DEL";
+          era.addEventListener("click", () => enterNum(0));
+          el.appendChild(era);
+        }
+
+        // ── Render board ───────────────────────────────────────────
+        function renderBoard() {
+          const sr = selected >= 0 ? Math.floor(selected / 9) : -1;
+          const sc = selected >= 0 ? selected % 9 : -1;
+
+          for (let i = 0; i < 81; i++) {
+            const cell = document.getElementById("cell-" + i);
+            if (!cell) continue;
+            const r = Math.floor(i / 9),
+              c = i % 9;
+
+            cell.className = "cell";
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+            cell.textContent = board[i] || "";
+
+            if (given[i]) cell.classList.add("given");
+
+            if (i === selected && !given[i]) {
+              cell.classList.add("selected");
+            } else if (sr >= 0) {
+              const sameBox =
+                Math.floor(r / 3) === Math.floor(sr / 3) &&
+                Math.floor(c / 3) === Math.floor(sc / 3);
+              if (r === sr || c === sc || sameBox)
+                cell.classList.add("highlight");
+            }
+          }
+        }
+
+        // ── Select cell ────────────────────────────────────────────
+        function selectCell(i) {
+          // ALL non-given cells are editable (including OCR-given — user can correct)
+          if (given[i]) {
+            // Allow editing given cells in correction mode
+            selected = selected === i ? -1 : i;
+          } else {
+            selected = selected === i ? -1 : i;
+          }
+          renderBoard();
+        }
+
+        // ── Enter number ───────────────────────────────────────────
+        function enterNum(n) {
+          if (selected < 0) return;
+          board[selected] = n;
+          // If editing an OCR-given cell, un-lock it now (user is correcting)
+          // given stays true so it shows darker, but value is now user's
+          const cell = document.getElementById("cell-" + selected);
+          cell.classList.remove("conflict", "solved-fill");
+          celebrationEl.classList.remove("visible");
+          renderBoard();
+        }
+
+        // ── Keyboard ───────────────────────────────────────────────
+        document.addEventListener("keydown", (e) => {
+          if (
+            panelBoard.style.display === "none" ||
+            !panelBoard.classList.contains("visible")
+          )
+            return;
+          const n = parseInt(e.key);
+          if (!isNaN(n) && n >= 0 && n <= 9 && selected >= 0) {
+            enterNum(n);
+          } else if (
+            (e.key === "Backspace" || e.key === "Delete") &&
+            selected >= 0
+          ) {
+            enterNum(0);
+          } else if (e.key === "ArrowRight") {
+            e.preventDefault();
+            selectCell(Math.min(80, selected < 0 ? 0 : selected + 1));
+          } else if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            selectCell(Math.max(0, selected < 0 ? 0 : selected - 1));
+          } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            selectCell(Math.min(80, selected < 0 ? 0 : selected + 9));
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            selectCell(Math.max(0, selected < 0 ? 0 : selected - 9));
+          }
+        });
+
+        // ── Load board ─────────────────────────────────────────────
+        function loadBoard(digits) {
+          board = [...digits];
+          given = digits.map((v) => v !== 0);
+          selected = -1;
+          celebrationEl.classList.remove("visible");
+          renderBoard();
+        }
+
+        // ── Show board panel ───────────────────────────────────────
+        function showBoardPanel() {
+          panelBoard.classList.add("visible");
+          panelUpload.style.display = "none";
+        }
+
+        // ── OCR: upload → backend ──────────────────────────────────
+        async function handleFile(file) {
+          if (!file || !file.type.startsWith("image/")) {
+            setStatus("error", "Please upload a valid image (JPEG, PNG, BMP).");
+            return;
+          }
+
+          setStatus(
+            "loading",
+            "Running OCR pipeline — detecting grid & classifying digits…",
+          );
+
+          const formData = new FormData();
+          formData.append("image", file);
+
+          try {
+            const res = await fetch(`${API}/api/ocr`, {
+              method: "POST",
+              body: formData,
+            });
+            const data = await res.json();
+
+            if (!res.ok || data.error) {
+              setStatus(
+                "error",
+                "✕ " +
+                  (data.error || "OCR failed. Try a clearer, well-lit image."),
+              );
+              return;
+            }
+
+            loadBoard(data.board);
+            setOcrBadge(data.mode || "knn");
+            setPills(2);
+            showBoardPanel();
+            setStatus(
+              "success",
+              `✓ OCR complete — ${data.digit_count} digits detected (${data.mode === "cnn" ? "CNN model" : "kNN fallback"}). ` +
+                `Click any wrong cell to correct it, then press Solve.`,
+            );
+          } catch (err) {
+            console.warn("Backend unreachable:", err.message);
+            // Fallback demo
+            const demo = [
+              5, 3, 0, 0, 7, 0, 0, 0, 0, 6, 0, 0, 1, 9, 5, 0, 0, 0, 0, 9, 8, 0,
+              0, 0, 0, 6, 0, 8, 0, 0, 0, 6, 0, 0, 0, 3, 4, 0, 0, 8, 0, 3, 0, 0,
+              1, 7, 0, 0, 0, 2, 0, 0, 0, 6, 0, 6, 0, 0, 0, 0, 2, 8, 0, 0, 0, 0,
+              4, 1, 9, 0, 0, 5, 0, 0, 0, 0, 8, 0, 0, 7, 9,
+            ];
+            loadBoard(demo);
+            setOcrBadge("knn");
+            setPills(2);
+            showBoardPanel();
+            setStatus(
+              "error",
+              "⚠ Backend not connected — loaded demo puzzle. Start Flask server with: python app.py",
+            );
+          }
+        }
+
+        // ── Solve ──────────────────────────────────────────────────
+        async function solve() {
+          setStatus("loading", "Solving…", true);
+          celebrationEl.classList.remove("visible");
+          document
+            .querySelectorAll(".cell.conflict")
+            .forEach((c) => c.classList.remove("conflict"));
+
+          try {
+            const res = await fetch(`${API}/api/solve`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ board }),
+            });
+            const data = await res.json();
+            handleSolveResult(data);
+          } catch (err) {
+            handleSolveResult(clientSolve([...board]));
+          }
+        }
+
+        function handleSolveResult(data) {
+          if (data.solved) {
+            board = data.board;
+            renderBoard();
+            for (let i = 0; i < 81; i++) {
+              if (!given[i] && board[i] !== 0) {
+                const c = document.getElementById("cell-" + i);
+                if (c) {
+                  c.classList.add("solved-fill");
+                  c.style.animationDelay = i * 6 + "ms";
+                }
+              }
+            }
+            celebrationEl.classList.add("visible");
+            correctionNote.classList.remove("visible");
+            setStatus(
+              "success",
+              "✓ Solved! All 81 cells filled correctly.",
+              true,
+            );
+            setPills(3);
+          } else {
+            if (data.conflicts) {
+              data.conflicts.forEach(([a, b]) => {
+                document.getElementById("cell-" + a)?.classList.add("conflict");
+                document.getElementById("cell-" + b)?.classList.add("conflict");
+              });
+            }
+            setStatus(
+              "error",
+              "✕ " +
+                (data.error ||
+                  "No solution — check red-highlighted cells for errors."),
+              true,
+            );
+          }
+        }
+
+        // ── Client-side backtracking solver (fallback) ─────────────
+        function clientSolve(b) {
+          function ok(b, idx, v) {
+            const r = Math.floor(idx / 9),
+              c = idx % 9;
+            for (let j = 0; j < 9; j++) {
+              if (b[r * 9 + j] === v && j !== c) return false;
+              if (b[j * 9 + c] === v && j !== r) return false;
+            }
+            const br = Math.floor(r / 3) * 3,
+              bc = Math.floor(c / 3) * 3;
+            for (let dr = 0; dr < 3; dr++)
+              for (let dc = 0; dc < 3; dc++) {
+                const ni = (br + dr) * 9 + (bc + dc);
+                if (ni !== idx && b[ni] === v) return false;
+              }
+            return true;
+          }
+          // Conflict check first
+          const conflicts = [];
+          for (let i = 0; i < 81; i++) {
+            if (!b[i]) continue;
+            const r = Math.floor(i / 9),
+              c = i % 9;
+            for (let j = 0; j < 9; j++) {
+              if (j !== c && b[r * 9 + j] === b[i])
+                conflicts.push([i, r * 9 + j]);
+              if (j !== r && b[j * 9 + c] === b[i])
+                conflicts.push([i, j * 9 + c]);
+            }
+          }
+          if (conflicts.length)
+            return {
+              solved: false,
+              board: b,
+              conflicts,
+              error: "Conflicting digits — check highlighted cells.",
+            };
+          function bt(b) {
+            const e = b.indexOf(0);
+            if (e === -1) return true;
+            for (let n = 1; n <= 9; n++) {
+              if (ok(b, e, n)) {
+                b[e] = n;
+                if (bt(b)) return true;
+                b[e] = 0;
+              }
+            }
+            return false;
+          }
+          const solved = bt(b);
+          return {
+            solved,
+            board: b,
+            conflicts: [],
+            error: solved ? null : "No valid solution exists for this puzzle.",
+          };
+        }
+
+        // ── Reset / Clear ──────────────────────────────────────────
+        function resetToGiven() {
+          for (let i = 0; i < 81; i++) if (!given[i]) board[i] = 0;
+          selected = -1;
+          celebrationEl.classList.remove("visible");
+          document
+            .querySelectorAll(".cell")
+            .forEach((c) => c.classList.remove("conflict", "solved-fill"));
+          correctionNote.classList.add("visible");
+          setStatus("success", "Board reset to OCR result.", true);
+          renderBoard();
+        }
+
+        function clearAll() {
+          board = Array(81).fill(0);
+          given = Array(81).fill(false);
+          selected = -1;
+          celebrationEl.classList.remove("visible");
+          document
+            .querySelectorAll(".cell")
+            .forEach((c) =>
+              c.classList.remove("conflict", "solved-fill", "given"),
+            );
+          renderBoard();
+          setStatus("", "", true);
+        }
+
+        function uploadNew() {
+          clearAll();
+          panelBoard.classList.remove("visible");
+          panelUpload.style.display = "";
+          setStatus("idle", "Waiting for image upload…");
+          setPills(1);
+          fileInput.value = "";
+          correctionNote.classList.add("visible");
+        }
+
+        // ── Drag & drop ────────────────────────────────────────────
+        uploadZone.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          uploadZone.classList.add("drag-over");
+        });
+        uploadZone.addEventListener("dragleave", () =>
+          uploadZone.classList.remove("drag-over"),
+        );
+        uploadZone.addEventListener("drop", (e) => {
+          e.preventDefault();
+          uploadZone.classList.remove("drag-over");
+          handleFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener("change", (e) =>
+          handleFile(e.target.files[0]),
+        );
+
+        // ── Check backend health on load ───────────────────────────
+        (async () => {
+          try {
+            const r = await fetch(`${API}/api/health`);
+            const d = await r.json();
+            if (d.model_ready) {
+              setOcrBadge("cnn");
+              document.getElementById("ocr-mode-badge").style.display = "flex";
+            } else {
+              setOcrBadge("knn");
+              document.getElementById("ocr-mode-badge").style.display = "flex";
+            }
+          } catch (e) {
+            /* backend offline */
+          }
+        })();
+
+        // ── Init ───────────────────────────────────────────────────
+        buildGrid();
+        buildNumpad();
+        renderBoard();
+
+        return { solve, resetToGiven, clearAll, uploadNew };
+      })();
+    </script>
+  </body>
+</html>
