@@ -6,10 +6,12 @@
     <title>Sudoku OCR Solver</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
-      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,500&display=swap"
       rel="stylesheet"
     />
+
     <style>
+      /* ── Reset ───────────────────────────────────────────────────────────────── */
       *,
       *::before,
       *::after {
@@ -17,253 +19,421 @@
         margin: 0;
         padding: 0;
       }
+
+      /* ── Design Tokens ───────────────────────────────────────────────────────── */
       :root {
-        --ink: #1a1814;
-        --ink-mid: #4a4740;
-        --ink-light: #9a958e;
-        --paper: #f5f2ec;
-        --paper-warm: #ede8df;
-        --paper-mid: #ddd8ce;
-        --accent: #2c5f3e;
-        --accent-lt: #e8f0eb;
-        --accent-mid: #4a8c62;
-        --red: #8c2c2c;
-        --red-lt: #f0e8e8;
-        --gold: #8c6f2c;
-        --gold-lt: #f5f0e0;
-        --blue: #1e3a6e;
-        --blue-lt: #e8eef8;
-        --border: #c8c3b8;
-        --cell-size: 52px;
-        --radius: 6px;
-        --mono: "DM Mono", monospace;
-        --serif: "Fraunces", Georgia, serif;
+        --bg: #0d1117;
+        --bg-card: #161b22;
+        --bg-raised: #1c2333;
+        --bg-hover: #21293a;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-mid: rgba(255, 255, 255, 0.14);
+
+        --text-primary: #e6edf3;
+        --text-secondary: #8b949e;
+        --text-muted: #484f58;
+
+        --accent: #3fb950;
+        --accent-dim: rgba(63, 185, 80, 0.15);
+        --accent-glow: rgba(63, 185, 80, 0.35);
+
+        --blue: #388bfd;
+        --blue-dim: rgba(56, 139, 253, 0.15);
+
+        --amber: #d29922;
+        --amber-dim: rgba(210, 153, 34, 0.15);
+
+        --red: #f85149;
+        --red-dim: rgba(248, 81, 73, 0.15);
+
+        --given-bg: rgba(56, 139, 253, 0.12);
+        --given-text: #79c0ff;
+
+        --cell-size: 54px;
+        --radius-sm: 6px;
+        --radius-md: 10px;
+        --radius-lg: 14px;
+        --radius-xl: 20px;
+
+        --font-ui: "Outfit", sans-serif;
+        --font-display: "Playfair Display", serif;
+        --font-mono: "SF Mono", "Fira Code", "Consolas", monospace;
+
+        --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+        --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+        --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
       }
+
+      /* ── Base ────────────────────────────────────────────────────────────────── */
       html {
         font-size: 16px;
+        scroll-behavior: smooth;
       }
       body {
-        background: var(--paper);
-        color: var(--ink);
-        font-family: var(--mono);
+        background: var(--bg);
+        color: var(--text-primary);
+        font-family: var(--font-ui);
         min-height: 100vh;
         display: flex;
         flex-direction: column;
         align-items: center;
+        background-image:
+          radial-gradient(
+            ellipse 80% 50% at 50% -10%,
+            rgba(63, 185, 80, 0.06) 0%,
+            transparent 70%
+          ),
+          radial-gradient(
+            ellipse 60% 40% at 80% 80%,
+            rgba(56, 139, 253, 0.04) 0%,
+            transparent 70%
+          );
       }
 
-      /* HEADER */
+      /* ── Header ──────────────────────────────────────────────────────────────── */
       header {
         width: 100%;
-        padding: 1.5rem 2rem 1rem;
-        border-bottom: 1px solid var(--border);
+        padding: 0 2rem;
+        height: 64px;
         display: flex;
-        align-items: flex-end;
-        gap: 1rem;
-        background: var(--paper-warm);
-        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+        background: rgba(13, 17, 23, 0.85);
+        backdrop-filter: blur(12px);
+        position: sticky;
+        top: 0;
+        z-index: 100;
       }
-      .logo-title {
-        font-family: var(--serif);
-        font-size: 1.9rem;
-        font-weight: 600;
-        color: var(--ink);
+
+      .brand {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+      .brand-name {
+        font-family: var(--font-display);
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--text-primary);
         letter-spacing: -0.02em;
-        line-height: 1;
       }
-      .logo-title em {
-        font-style: italic;
+      .brand-name span {
         color: var(--accent);
+        font-style: italic;
       }
-      .logo-sub {
+      .brand-tag {
         font-size: 0.65rem;
-        color: var(--ink-light);
+        font-weight: 500;
         letter-spacing: 0.12em;
         text-transform: uppercase;
-        padding-bottom: 3px;
-      }
-      .step-pills {
-        margin-left: auto;
-        display: flex;
-        gap: 6px;
-        align-items: center;
-      }
-      .step-pill {
-        font-size: 0.62rem;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        padding: 4px 10px;
+        color: var(--text-muted);
+        border: 1px solid var(--border-mid);
+        padding: 2px 8px;
         border-radius: 20px;
-        border: 1px solid var(--border);
-        color: var(--ink-light);
+      }
+
+      /* ── Nav pills ───────────────────────────────────────────────────────────── */
+      .nav-steps {
+        display: flex;
+        gap: 4px;
+      }
+      .step-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-family: var(--font-ui);
+        font-size: 0.72rem;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        cursor: pointer;
+        border: 1px solid transparent;
         background: transparent;
+        color: var(--text-muted);
         transition: all 0.2s;
       }
-      .step-pill.active {
-        background: var(--ink);
-        color: var(--paper);
-        border-color: var(--ink);
+      .step-btn .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0.4;
       }
-      .step-pill.done {
-        background: var(--accent-lt);
+      .step-btn.active {
+        background: var(--bg-raised);
+        border-color: var(--border-mid);
+        color: var(--text-primary);
+      }
+      .step-btn.active .dot {
+        opacity: 1;
+        background: var(--accent);
+      }
+      .step-btn.done {
         color: var(--accent);
-        border-color: var(--accent-mid);
+      }
+      .step-btn.done .dot {
+        opacity: 1;
+        background: var(--accent);
       }
 
-      /* OCR MODE BADGE */
-      #ocr-mode-badge {
-        font-size: 0.62rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        padding: 3px 10px;
-        border-radius: 20px;
+      /* OCR mode badge */
+      #ocr-badge {
         display: none;
         align-items: center;
-        gap: 5px;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
-      #ocr-mode-badge.cnn {
-        background: var(--accent-lt);
+      #ocr-badge.cnn {
+        background: var(--accent-dim);
+        border: 1px solid var(--accent-glow);
         color: var(--accent);
-        border: 1px solid var(--accent-mid);
       }
-      #ocr-mode-badge.knn {
-        background: var(--gold-lt);
-        color: var(--gold);
-        border: 1px solid var(--gold);
+      #ocr-badge.knn {
+        background: var(--amber-dim);
+        border: 1px solid var(--amber);
+        color: var(--amber);
+      }
+      #ocr-badge .badge-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        animation: pulse-dot 2s infinite;
+      }
+      @keyframes pulse-dot {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.5;
+          transform: scale(0.7);
+        }
       }
 
-      /* MAIN */
+      /* ── Main Layout ─────────────────────────────────────────────────────────── */
       main {
         width: 100%;
-        max-width: 920px;
-        padding: 1.75rem 1.5rem;
+        max-width: 1000px;
+        padding: 2.5rem 1.5rem;
         display: flex;
         flex-direction: column;
-        gap: 1.5rem;
+        gap: 2rem;
       }
 
-      /* SECTION LABEL */
-      .section-label {
-        font-size: 0.62rem;
-        letter-spacing: 0.14em;
+      /* ── Section heading ─────────────────────────────────────────────────────── */
+      .section-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 1rem;
+      }
+      .section-num {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--bg-raised);
+        border: 1px solid var(--border-mid);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: var(--accent);
+        flex-shrink: 0;
+      }
+      .section-title {
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
         text-transform: uppercase;
-        color: var(--ink-light);
-        margin-bottom: 0.6rem;
+        color: var(--text-secondary);
       }
 
-      /* UPLOAD */
+      /* ── Upload Panel ────────────────────────────────────────────────────────── */
       #panel-upload {
       }
+
       .upload-zone {
-        border: 1.5px dashed var(--border);
-        border-radius: var(--radius);
-        padding: 2.25rem 2rem;
+        border: 1.5px dashed var(--border-mid);
+        border-radius: var(--radius-xl);
+        padding: 3rem 2rem;
         text-align: center;
         cursor: pointer;
-        background: var(--paper-warm);
+        background: var(--bg-card);
         transition:
-          border-color 0.2s,
-          background 0.2s;
+          border-color 0.25s,
+          background 0.25s,
+          transform 0.15s;
         position: relative;
+        overflow: hidden;
+      }
+      .upload-zone::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          ellipse 60% 40% at 50% 50%,
+          var(--accent-dim) 0%,
+          transparent 70%
+        );
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .upload-zone:hover::before,
+      .upload-zone.drag-over::before {
+        opacity: 1;
       }
       .upload-zone:hover,
       .upload-zone.drag-over {
-        border-color: var(--accent-mid);
-        background: var(--accent-lt);
+        border-color: var(--accent);
+        transform: translateY(-2px);
       }
       .upload-zone input[type="file"] {
         position: absolute;
         inset: 0;
         opacity: 0;
         cursor: pointer;
-        width: 100%;
-        height: 100%;
+        z-index: 2;
       }
-      .upload-icon {
-        width: 44px;
-        height: 44px;
-        margin: 0 auto 0.9rem;
-        border: 1.5px solid var(--border);
-        border-radius: 50%;
+      .upload-icon-wrap {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 1.25rem;
+        border-radius: 16px;
+        background: var(--bg-raised);
+        border: 1px solid var(--border-mid);
         display: flex;
         align-items: center;
         justify-content: center;
-        background: var(--paper);
+        position: relative;
       }
-      .upload-icon svg {
-        width: 20px;
-        height: 20px;
-        stroke: var(--ink-mid);
+      .upload-icon-wrap svg {
+        width: 28px;
+        height: 28px;
+        stroke: var(--accent);
         fill: none;
         stroke-width: 1.5;
       }
-      .upload-title {
-        font-family: var(--serif);
-        font-size: 1.05rem;
-        font-weight: 300;
-        color: var(--ink);
-        margin-bottom: 4px;
+      .upload-headline {
+        font-family: var(--font-display);
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 6px;
       }
-      .upload-hint {
-        font-size: 0.72rem;
-        color: var(--ink-light);
-        margin-bottom: 1rem;
+      .upload-sub {
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+      }
+      .upload-formats {
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+        margin-bottom: 1.5rem;
+      }
+      .format-pill {
+        font-size: 0.64rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        padding: 3px 8px;
+        border-radius: 4px;
+        background: var(--bg-raised);
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+      }
+      .btn-upload-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 24px;
+        background: var(--accent);
+        color: #0d1117;
+        border: none;
+        border-radius: var(--radius-md);
+        font-family: var(--font-ui);
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        pointer-events: none;
+        box-shadow: 0 0 20px var(--accent-glow);
+        transition: all 0.2s;
       }
 
-      /* STATUS BAR */
+      /* ── Status Bar ──────────────────────────────────────────────────────────── */
       #status-bar {
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        border-radius: var(--radius);
-        font-size: 0.73rem;
-        margin-top: 0.9rem;
-        min-height: 36px;
+        gap: 10px;
+        padding: 10px 16px;
+        border-radius: var(--radius-md);
+        font-size: 0.8rem;
+        font-weight: 500;
+        margin-top: 1rem;
+        min-height: 42px;
         border: 1px solid transparent;
         transition: all 0.3s;
       }
       #status-bar.idle {
-        background: var(--paper-warm);
+        background: var(--bg-card);
         border-color: var(--border);
-        color: var(--ink-light);
+        color: var(--text-muted);
       }
       #status-bar.loading {
-        background: var(--gold-lt);
-        border-color: var(--gold);
-        color: var(--gold);
+        background: var(--amber-dim);
+        border-color: var(--amber);
+        color: var(--amber);
       }
       #status-bar.success {
-        background: var(--accent-lt);
-        border-color: var(--accent-mid);
+        background: var(--accent-dim);
+        border-color: var(--accent-glow);
         color: var(--accent);
       }
       #status-bar.error {
-        background: var(--red-lt);
+        background: var(--red-dim);
         border-color: var(--red);
         color: var(--red);
       }
-      .status-dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
+      .status-icon {
         flex-shrink: 0;
-        background: currentColor;
+        width: 18px;
+        height: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      .status-dot.spin {
-        animation: blink 1s infinite;
+      .status-icon svg {
+        width: 16px;
+        height: 16px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2;
       }
-      @keyframes blink {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.25;
+      .spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid currentColor;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
         }
       }
 
-      /* BOARD PANEL */
+      /* ── Board Panel ─────────────────────────────────────────────────────────── */
       #panel-board {
         display: none;
       }
@@ -271,424 +441,553 @@
         display: block;
       }
 
-      .board-area {
+      .board-layout {
         display: flex;
         gap: 2rem;
         align-items: flex-start;
         flex-wrap: wrap;
       }
 
-      /* GRID */
+      /* ── Sudoku Grid ─────────────────────────────────────────────────────────── */
+      .grid-wrapper {
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow:
+          var(--shadow-lg),
+          0 0 0 1px var(--border);
+        flex-shrink: 0;
+      }
+
       #grid {
         display: grid;
         grid-template-columns: repeat(9, var(--cell-size));
         grid-template-rows: repeat(9, var(--cell-size));
-        border: 2.5px solid var(--ink);
-        border-radius: 4px;
-        overflow: hidden;
-        flex-shrink: 0;
-        background: var(--paper);
+        background: var(--bg-card);
       }
 
       .cell {
         width: var(--cell-size);
         height: var(--cell-size);
-        border: 0.5px solid var(--border);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-family: var(--mono);
-        font-size: 1.2rem;
-        font-weight: 500;
+        font-family: var(--font-mono);
+        font-size: 1.25rem;
+        font-weight: 600;
         cursor: pointer;
-        background: var(--paper);
-        color: var(--ink);
-        transition: background 0.1s;
+        background: var(--bg-card);
+        color: var(--text-primary);
+        border-right: 1px solid rgba(255, 255, 255, 0.06);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        transition: background 0.12s;
+        position: relative;
         user-select: none;
         -webkit-tap-highlight-color: transparent;
       }
+      /* Box borders */
       .cell[data-col="2"],
       .cell[data-col="5"] {
-        border-right: 2px solid var(--ink);
+        border-right: 2px solid rgba(255, 255, 255, 0.2);
       }
       .cell[data-row="2"],
       .cell[data-row="5"] {
-        border-bottom: 2px solid var(--ink);
+        border-bottom: 2px solid rgba(255, 255, 255, 0.2);
       }
+      /* Remove redundant outer right/bottom borders */
+      .cell[data-col="8"] {
+        border-right: none;
+      }
+      .cell[data-row="8"] {
+        border-bottom: none;
+      }
+
       .cell.given {
-        background: var(--paper-warm);
-        color: var(--ink);
+        background: var(--given-bg);
+        color: var(--given-text);
         cursor: default;
+        font-weight: 700;
       }
       .cell.user-filled {
         color: var(--accent);
-        cursor: pointer;
       }
       .cell.solved-fill {
-        color: var(--accent-mid);
+        color: var(--accent);
+        animation: cell-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+      @keyframes cell-pop {
+        from {
+          transform: scale(0.6);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
       }
       .cell.selected {
-        background: #dbeafe !important;
-        outline: 2px solid #3b82f6;
+        background: var(--blue-dim) !important;
+        outline: 2px solid var(--blue);
+        outline-offset: -2px;
         z-index: 2;
       }
       .cell.highlight {
-        background: #eff6ff;
+        background: rgba(56, 139, 253, 0.05);
       }
       .cell.conflict {
-        background: var(--red-lt) !important;
+        background: var(--red-dim) !important;
         color: var(--red) !important;
+        animation: shake 0.35s ease;
       }
-      .cell:not(.given):hover:not(.selected) {
-        background: var(--paper-mid);
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-3px);
+        }
+        75% {
+          transform: translateX(3px);
+        }
+      }
+      .cell:not(.given):not(.selected):hover {
+        background: var(--bg-hover);
       }
 
-      /* CONTROLS */
+      /* ── Controls ────────────────────────────────────────────────────────────── */
       .controls {
         display: flex;
         flex-direction: column;
-        gap: 1.4rem;
-        min-width: 180px;
-      }
-      .control-group {
-        display: flex;
-        flex-direction: column;
-        gap: 7px;
+        gap: 1.5rem;
+        flex: 1;
+        min-width: 200px;
       }
 
-      /* NUMPAD */
-      #numpad {
+      /* ── Numpad ──────────────────────────────────────────────────────────────── */
+      .numpad-grid {
         display: grid;
-        grid-template-columns: repeat(3, 52px);
+        grid-template-columns: repeat(3, 1fr);
         gap: 6px;
       }
       .numkey {
-        width: 52px;
-        height: 52px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        background: var(--paper-warm);
-        font-family: var(--mono);
+        aspect-ratio: 1;
+        border: 1px solid var(--border-mid);
+        border-radius: var(--radius-md);
+        background: var(--bg-card);
+        font-family: var(--font-mono);
         font-size: 1.15rem;
-        font-weight: 500;
-        color: var(--ink);
+        font-weight: 600;
+        color: var(--text-primary);
         cursor: pointer;
-        transition: all 0.1s;
+        transition: all 0.12s;
         display: flex;
         align-items: center;
         justify-content: center;
       }
       .numkey:hover {
-        background: var(--paper-mid);
-        border-color: var(--ink-mid);
+        background: var(--bg-hover);
+        border-color: var(--accent);
+        color: var(--accent);
+        box-shadow: 0 0 12px var(--accent-dim);
       }
       .numkey:active {
-        transform: scale(0.92);
+        transform: scale(0.93);
       }
       .numkey.del-key {
         font-size: 0.72rem;
-        color: var(--ink-light);
-        letter-spacing: 0.03em;
+        font-family: var(--font-ui);
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+      }
+      .numkey.del-key:hover {
+        color: var(--red);
+        border-color: var(--red);
       }
 
-      /* BUTTONS */
+      /* ── Action Buttons ──────────────────────────────────────────────────────── */
+      .action-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
       .btn {
-        display: inline-flex;
+        display: flex;
         align-items: center;
-        gap: 6px;
-        padding: 8px 16px;
-        border-radius: var(--radius);
-        font-family: var(--mono);
-        font-size: 0.78rem;
+        gap: 10px;
+        padding: 11px 18px;
+        border-radius: var(--radius-md);
+        font-family: var(--font-ui);
+        font-size: 0.82rem;
+        font-weight: 500;
         cursor: pointer;
         transition: all 0.15s;
-        border: 1px solid var(--border);
-        background: var(--paper);
-        color: var(--ink);
-        letter-spacing: 0.02em;
+        border: 1px solid var(--border-mid);
+        background: var(--bg-card);
+        color: var(--text-secondary);
         width: 100%;
-        justify-content: flex-start;
+        text-align: left;
+      }
+      .btn svg {
+        width: 15px;
+        height: 15px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2;
+        flex-shrink: 0;
       }
       .btn:hover {
-        background: var(--paper-mid);
+        background: var(--bg-hover);
+        color: var(--text-primary);
+        border-color: var(--border-mid);
       }
       .btn:active {
-        transform: scale(0.97);
+        transform: scale(0.98);
       }
-      .btn-accent {
+
+      .btn-primary {
         background: var(--accent);
-        color: var(--paper);
+        color: #0d1117;
         border-color: var(--accent);
+        font-weight: 700;
+        font-size: 0.88rem;
+        box-shadow: 0 0 16px var(--accent-glow);
       }
-      .btn-accent:hover {
-        background: var(--accent-mid);
+      .btn-primary:hover {
+        background: #4fc761;
+        box-shadow: 0 0 24px var(--accent-glow);
+        color: #0d1117;
       }
-
-      /* CORRECTION NOTICE */
-      #correction-notice {
-        display: none;
-        padding: 9px 12px;
-        background: var(--blue-lt);
-        border: 1px solid #b8c8e8;
-        border-radius: var(--radius);
-        font-size: 0.72rem;
-        color: var(--blue);
-        margin-top: 0.75rem;
-        line-height: 1.5;
-      }
-      #correction-notice.visible {
-        display: block;
+      .btn-primary svg {
+        stroke: #0d1117;
       }
 
-      /* CELEBRATION */
-      #celebration {
+      /* ── Tip Box ─────────────────────────────────────────────────────────────── */
+      #tip-box {
         display: none;
-        margin-top: 1rem;
         padding: 12px 16px;
-        background: var(--accent-lt);
-        border: 1px solid var(--accent-mid);
-        border-radius: var(--radius);
+        background: var(--blue-dim);
+        border: 1px solid rgba(56, 139, 253, 0.3);
+        border-radius: var(--radius-md);
         font-size: 0.78rem;
-        color: var(--accent);
-        text-align: center;
+        color: #79c0ff;
+        line-height: 1.6;
+        margin-top: 1rem;
       }
-      #celebration.visible {
+      #tip-box.visible {
         display: block;
-        animation: slide-in 0.35s ease;
       }
-      #celebration .big {
-        font-family: var(--serif);
-        font-size: 1.05rem;
-        font-weight: 600;
-        margin-bottom: 3px;
+
+      /* ── Solved Banner ───────────────────────────────────────────────────────── */
+      #solved-banner {
+        display: none;
+        margin-top: 1.25rem;
+        padding: 16px 20px;
+        background: linear-gradient(
+          135deg,
+          rgba(63, 185, 80, 0.15),
+          rgba(63, 185, 80, 0.05)
+        );
+        border: 1px solid var(--accent-glow);
+        border-radius: var(--radius-lg);
+        text-align: center;
+        animation: banner-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
       }
-      @keyframes slide-in {
+      #solved-banner.visible {
+        display: block;
+      }
+      @keyframes banner-in {
         from {
           opacity: 0;
-          transform: translateY(-6px);
+          transform: scale(0.95) translateY(8px);
         }
         to {
           opacity: 1;
-          transform: translateY(0);
+          transform: scale(1) translateY(0);
         }
       }
+      .banner-title {
+        font-family: var(--font-display);
+        font-size: 1.3rem;
+        font-style: italic;
+        font-weight: 500;
+        color: var(--accent);
+        margin-bottom: 4px;
+      }
+      .banner-sub {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+      }
 
-      /* RESPONSIVE */
-      @media (max-width: 640px) {
+      /* ── Board Status ────────────────────────────────────────────────────────── */
+      #board-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        border-radius: var(--radius-md);
+        font-size: 0.8rem;
+        font-weight: 500;
+        min-height: 40px;
+        margin-top: 1rem;
+        border: 1px solid transparent;
+        transition: all 0.3s;
+      }
+
+      /* ── Responsive ──────────────────────────────────────────────────────────── */
+      @media (max-width: 660px) {
         :root {
           --cell-size: 38px;
         }
         main {
-          padding: 1rem;
+          padding: 1.25rem 1rem;
         }
-        .board-area {
+        .board-layout {
           flex-direction: column;
         }
         .controls {
-          flex-direction: row;
-          flex-wrap: wrap;
-          gap: 1rem;
           min-width: unset;
         }
-        #numpad {
-          grid-template-columns: repeat(5, 44px);
+        .numpad-grid {
+          grid-template-columns: repeat(5, 1fr);
         }
         .numkey {
-          width: 44px;
+          aspect-ratio: auto;
           height: 44px;
-          font-size: 1rem;
         }
-        .logo-title {
-          font-size: 1.4rem;
+        .brand-tag {
+          display: none;
         }
-        .step-pills {
+        .nav-steps {
           display: none;
         }
       }
     </style>
   </head>
   <body>
+    <!-- ── HEADER ─────────────────────────────────────────────────────────────── -->
     <header>
-      <div>
-        <div class="logo-title">Sudoku <em>OCR</em> Solver</div>
-        <div class="logo-sub">MSc Project — PyTorch + OpenCV</div>
+      <div class="brand">
+        <div class="brand-name">Sudoku <span>OCR</span></div>
+        <div class="brand-tag">MSc Project</div>
       </div>
-      <div
-        style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap"
-      >
-        <div id="ocr-mode-badge">
-          <span
-            id="ocr-mode-dot"
-            style="
-              width: 6px;
-              height: 6px;
-              border-radius: 50%;
-              background: currentColor;
-              display: inline-block;
-            "
-          ></span>
-          <span id="ocr-mode-text">CNN</span>
+      <div style="display: flex; align-items: center; gap: 10px">
+        <div id="ocr-badge">
+          <span class="badge-dot"></span>
+          <span id="badge-text">CNN Active</span>
         </div>
-        <div class="step-pills">
-          <div class="step-pill active" id="pill-1">① Upload</div>
-          <div class="step-pill" id="pill-2">② Verify</div>
-          <div class="step-pill" id="pill-3">③ Solve</div>
-        </div>
+        <nav class="nav-steps">
+          <button class="step-btn active" id="pill-1">
+            <span class="dot"></span>Upload
+          </button>
+          <button class="step-btn" id="pill-2">
+            <span class="dot"></span>Verify
+          </button>
+          <button class="step-btn" id="pill-3">
+            <span class="dot"></span>Solved
+          </button>
+        </nav>
       </div>
     </header>
 
+    <!-- ── MAIN ───────────────────────────────────────────────────────────────── -->
     <main>
       <!-- UPLOAD PANEL -->
       <div id="panel-upload">
-        <div class="section-label">
-          Step 1 — Upload a sudoku image from newspaper / photo
+        <div class="section-head">
+          <div class="section-num">1</div>
+          <div class="section-title">Upload a sudoku image</div>
         </div>
+
         <div class="upload-zone" id="upload-zone">
           <input
             type="file"
             id="file-input"
             accept="image/jpeg,image/png,image/webp,image/bmp"
           />
-          <div class="upload-icon">
+          <div class="upload-icon-wrap">
             <svg viewBox="0 0 24 24">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
           </div>
-          <div class="upload-title">Upload image of sudoku to solve</div>
-          <div class="upload-hint">
-            Drag &amp; drop or click — JPEG, PNG, BMP supported
+          <div class="upload-headline">Drop your sudoku image here</div>
+          <div class="upload-sub">
+            Photograph from newspaper, book, or digital screen
           </div>
-          <button
-            class="btn btn-accent"
-            style="width: auto; margin: 0 auto; pointer-events: none"
-          >
-            Choose image
+          <div class="upload-formats">
+            <span class="format-pill">JPEG</span>
+            <span class="format-pill">PNG</span>
+            <span class="format-pill">WEBP</span>
+            <span class="format-pill">BMP</span>
+          </div>
+          <button class="btn-upload-cta">
+            <svg
+              style="
+                width: 16px;
+                height: 16px;
+                stroke: #0d1117;
+                fill: none;
+                stroke-width: 2;
+              "
+              viewBox="0 0 24 24"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Choose Image
           </button>
         </div>
+
         <div id="status-bar" class="idle">
-          <div class="status-dot" id="status-dot"></div>
+          <div class="status-icon">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          </div>
           <span id="status-text">Waiting for image upload…</span>
         </div>
       </div>
 
       <!-- BOARD PANEL -->
       <div id="panel-board">
-        <div class="section-label">
-          Step 2 — Verify OCR result &amp; correct any wrong digits
+        <div class="section-head">
+          <div class="section-num">2</div>
+          <div class="section-title">
+            Verify digits &amp; correct any errors
+          </div>
         </div>
 
-        <div class="board-area">
+        <div class="board-layout">
           <!-- Grid -->
-          <div id="grid"></div>
+          <div class="grid-wrapper">
+            <div id="grid"></div>
+          </div>
 
           <!-- Controls -->
           <div class="controls">
-            <div class="control-group">
-              <div class="section-label">Number pad</div>
-              <div id="numpad"></div>
+            <div>
+              <div class="section-title" style="margin-bottom: 0.6rem">
+                Number Pad
+              </div>
+              <div class="numpad-grid" id="numpad"></div>
             </div>
-            <div class="control-group">
-              <div class="section-label">Actions</div>
-              <div style="display: flex; flex-direction: column; gap: 6px">
-                <button class="btn btn-accent" onclick="App.solve()">
-                  ▶&nbsp; Solve puzzle
+
+            <div>
+              <div class="section-title" style="margin-bottom: 0.6rem">
+                Actions
+              </div>
+              <div class="action-stack">
+                <button class="btn btn-primary" onclick="App.solve()">
+                  <svg viewBox="0 0 24 24">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                  Solve Puzzle
                 </button>
                 <button class="btn" onclick="App.resetToGiven()">
-                  ↺&nbsp; Reset to OCR result
+                  <svg viewBox="0 0 24 24">
+                    <polyline points="1 4 1 10 7 10" />
+                    <path d="M3.51 15a9 9 0 1 0 .49-3.49" />
+                  </svg>
+                  Reset to OCR Result
                 </button>
                 <button class="btn" onclick="App.clearAll()">
-                  ✕&nbsp; Clear board
+                  <svg viewBox="0 0 24 24">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14H6L5 6" />
+                    <path d="M10 11v6M14 11v6" />
+                  </svg>
+                  Clear Board
                 </button>
                 <button
                   class="btn"
                   onclick="App.uploadNew()"
-                  style="margin-top: 6px"
+                  style="margin-top: 4px"
                 >
-                  ⤴&nbsp; Upload new image
+                  <svg viewBox="0 0 24 24">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  Upload New Image
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Correction notice -->
-        <div id="correction-notice" class="visible">
-          <strong>Tip:</strong> Click any cell to select it, then tap a number
-          to correct it. Cells with wrong OCR digits are <em>not</em> locked —
-          you can freely edit them. After correcting, press
-          <strong>Solve puzzle</strong>.
+        <!-- Tip -->
+        <div id="tip-box" class="visible">
+          <strong style="color: #79c0ff">Tip:</strong> Click any cell, then
+          press a number key or tap the numpad. OCR-detected cells are
+          highlighted in blue — you can edit them freely to correct mistakes.
+          Arrow keys navigate between cells.
         </div>
 
-        <!-- Celebration -->
-        <div id="celebration">
-          <div class="big">Puzzle Solved!</div>
-          <div>All 81 cells filled — solution verified correct.</div>
+        <!-- Solved banner -->
+        <div id="solved-banner">
+          <div class="banner-title">Puzzle Solved ✓</div>
+          <div class="banner-sub">All 81 cells filled and verified correct</div>
         </div>
 
-        <div
-          id="status-bar-board"
-          style="
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 0.73rem;
-            margin-top: 0.9rem;
-            min-height: 36px;
-            border: 1px solid transparent;
-          "
-        ></div>
+        <!-- Board status -->
+        <div id="board-status"></div>
       </div>
     </main>
 
     <script>
+      /* ══════════════════════════════════════════════════════════════════════════
+   App
+══════════════════════════════════════════════════════════════════════════ */
       const App = (() => {
         const API = window.location.origin;
 
         let board = Array(81).fill(0);
-        let given = Array(81).fill(false); // locked = came from OCR
+        let given = Array(81).fill(false);
         let selected = -1;
 
-        // DOM
-        const uploadZone = document.getElementById("upload-zone");
+        const $upload = document.getElementById("panel-upload");
+        const $board = document.getElementById("panel-board");
+        const $celebrate = document.getElementById("solved-banner");
+        const $tip = document.getElementById("tip-box");
         const fileInput = document.getElementById("file-input");
-        const panelUpload = document.getElementById("panel-upload");
-        const panelBoard = document.getElementById("panel-board");
-        const celebrationEl = document.getElementById("celebration");
-        const correctionNote = document.getElementById("correction-notice");
+        const uploadZone = document.getElementById("upload-zone");
 
-        // ── Status ─────────────────────────────────────────────────
-        function setStatus(state, text, boardPanel = false) {
-          const barId = boardPanel ? "status-bar-board" : "status-bar";
-          const bar = document.getElementById(barId);
-          const dotId = boardPanel ? null : "status-dot";
-          const txtId = boardPanel ? null : "status-text";
+        // ── Status ──────────────────────────────────────────────────────────────
+        const statusIcons = {
+          idle: `<svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+          loading: `<div class="spinner"></div>`,
+          success: `<svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5"><polyline points="20 6 9 17 4 12"/></svg>`,
+          error: `<svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+        };
 
+        function setStatus(state, text, board = false) {
+          const id = board ? "board-status" : "status-bar";
+          const bar = document.getElementById(id);
+          if (!bar) return;
           const colors = {
-            idle: "background:var(--paper-warm);border-color:var(--border);color:var(--ink-light)",
+            idle: "background:var(--bg-card);border-color:var(--border);color:var(--text-muted)",
             loading:
-              "background:var(--gold-lt);border-color:var(--gold);color:var(--gold)",
+              "background:var(--amber-dim);border-color:var(--amber);color:var(--amber)",
             success:
-              "background:var(--accent-lt);border-color:var(--accent-mid);color:var(--accent)",
+              "background:var(--accent-dim);border-color:var(--accent-glow);color:var(--accent)",
             error:
-              "background:var(--red-lt);border-color:var(--red);color:var(--red)",
+              "background:var(--red-dim);border-color:var(--red);color:var(--red)",
           };
           bar.style.cssText = colors[state] || colors.idle;
-
-          if (boardPanel) {
+          if (board) {
             bar.innerHTML = text
-              ? `<span style="width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;display:inline-block"></span><span>${text}</span>`
+              ? `<div class="status-icon">${statusIcons[state] || ""}</div><span>${text}</span>`
               : "";
           } else {
-            if (dotId) {
-              const dot = document.getElementById(dotId);
-              dot.className =
-                "status-dot" + (state === "loading" ? " spin" : "");
-            }
-            if (txtId) document.getElementById(txtId).textContent = text;
+            document.getElementById("status-text").textContent = text;
+            document.querySelector("#status-bar .status-icon").innerHTML =
+              statusIcons[state] || "";
           }
         }
 
@@ -696,28 +995,30 @@
           ["pill-1", "pill-2", "pill-3"].forEach((id, i) => {
             const el = document.getElementById(id);
             el.className =
-              "step-pill" +
+              "step-btn" +
               (i + 1 < step ? " done" : i + 1 === step ? " active" : "");
           });
         }
 
         function setOcrBadge(mode) {
-          const badge = document.getElementById("ocr-mode-badge");
-          const text = document.getElementById("ocr-mode-text");
+          const badge = document.getElementById("ocr-badge");
+          const text = document.getElementById("badge-text");
           badge.style.display = "flex";
+          badge.className = mode === "cnn" ? "ocr-badge cnn" : "ocr-badge knn";
+          // match the CSS classes defined above
+          badge.id = "ocr-badge";
           if (mode === "cnn") {
-            badge.className = "ocr-mode-badge cnn";
             badge.style.cssText =
-              "display:flex;align-items:center;gap:5px;font-size:0.62rem;letter-spacing:0.08em;text-transform:uppercase;padding:3px 10px;border-radius:20px;background:var(--accent-lt);color:var(--accent);border:1px solid var(--accent-mid)";
-            text.textContent = "CNN OCR active";
+              "display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:0.68rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;background:var(--accent-dim);border:1px solid var(--accent-glow);color:var(--accent)";
+            text.textContent = "CNN Active";
           } else {
             badge.style.cssText =
-              "display:flex;align-items:center;gap:5px;font-size:0.62rem;letter-spacing:0.08em;text-transform:uppercase;padding:3px 10px;border-radius:20px;background:var(--gold-lt);color:var(--gold);border:1px solid var(--gold)";
-            text.textContent = "kNN OCR (train.py pending)";
+              "display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:0.68rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;background:var(--amber-dim);border:1px solid var(--amber);color:var(--amber)";
+            text.textContent = "kNN Fallback";
           }
         }
 
-        // ── Build grid ─────────────────────────────────────────────
+        // ── Grid build ───────────────────────────────────────────────────────────
         function buildGrid() {
           const el = document.getElementById("grid");
           el.innerHTML = "";
@@ -734,7 +1035,6 @@
           }
         }
 
-        // ── Build numpad ───────────────────────────────────────────
         function buildNumpad() {
           const el = document.getElementById("numpad");
           el.innerHTML = "";
@@ -745,32 +1045,28 @@
             btn.addEventListener("click", () => enterNum(n));
             el.appendChild(btn);
           }
-          const era = document.createElement("button");
-          era.className = "numkey del-key";
-          era.textContent = "DEL";
-          era.addEventListener("click", () => enterNum(0));
-          el.appendChild(era);
+          const del = document.createElement("button");
+          del.className = "numkey del-key";
+          del.textContent = "DEL";
+          del.addEventListener("click", () => enterNum(0));
+          el.appendChild(del);
         }
 
-        // ── Render board ───────────────────────────────────────────
+        // ── Render ───────────────────────────────────────────────────────────────
         function renderBoard() {
           const sr = selected >= 0 ? Math.floor(selected / 9) : -1;
           const sc = selected >= 0 ? selected % 9 : -1;
-
           for (let i = 0; i < 81; i++) {
             const cell = document.getElementById("cell-" + i);
             if (!cell) continue;
             const r = Math.floor(i / 9),
               c = i % 9;
-
             cell.className = "cell";
             cell.dataset.row = r;
             cell.dataset.col = c;
             cell.textContent = board[i] || "";
-
             if (given[i]) cell.classList.add("given");
-
-            if (i === selected && !given[i]) {
+            if (i === selected) {
               cell.classList.add("selected");
             } else if (sr >= 0) {
               const sameBox =
@@ -782,118 +1078,99 @@
           }
         }
 
-        // ── Select cell ────────────────────────────────────────────
         function selectCell(i) {
-          // ALL non-given cells are editable (including OCR-given — user can correct)
-          if (given[i]) {
-            // Allow editing given cells in correction mode
-            selected = selected === i ? -1 : i;
-          } else {
-            selected = selected === i ? -1 : i;
-          }
+          selected = selected === i ? -1 : i;
           renderBoard();
         }
 
-        // ── Enter number ───────────────────────────────────────────
         function enterNum(n) {
           if (selected < 0) return;
           board[selected] = n;
-          // If editing an OCR-given cell, un-lock it now (user is correcting)
-          // given stays true so it shows darker, but value is now user's
           const cell = document.getElementById("cell-" + selected);
-          cell.classList.remove("conflict", "solved-fill");
-          celebrationEl.classList.remove("visible");
+          if (cell) {
+            cell.classList.remove("conflict", "solved-fill");
+          }
+          $celebrate.classList.remove("visible");
           renderBoard();
+          if (n !== 0 && cell && !given[selected])
+            cell.classList.add("user-filled");
         }
 
-        // ── Keyboard ───────────────────────────────────────────────
         document.addEventListener("keydown", (e) => {
-          if (
-            panelBoard.style.display === "none" ||
-            !panelBoard.classList.contains("visible")
-          )
-            return;
+          if (!$board.classList.contains("visible")) return;
           const n = parseInt(e.key);
           if (!isNaN(n) && n >= 0 && n <= 9 && selected >= 0) {
             enterNum(n);
-          } else if (
-            (e.key === "Backspace" || e.key === "Delete") &&
-            selected >= 0
-          ) {
+            return;
+          }
+          if ((e.key === "Backspace" || e.key === "Delete") && selected >= 0) {
             enterNum(0);
-          } else if (e.key === "ArrowRight") {
+            return;
+          }
+          const moves = {
+            ArrowRight: 1,
+            ArrowLeft: -1,
+            ArrowDown: 9,
+            ArrowUp: -9,
+          };
+          if (moves[e.key] !== undefined) {
             e.preventDefault();
-            selectCell(Math.min(80, selected < 0 ? 0 : selected + 1));
-          } else if (e.key === "ArrowLeft") {
-            e.preventDefault();
-            selectCell(Math.max(0, selected < 0 ? 0 : selected - 1));
-          } else if (e.key === "ArrowDown") {
-            e.preventDefault();
-            selectCell(Math.min(80, selected < 0 ? 0 : selected + 9));
-          } else if (e.key === "ArrowUp") {
-            e.preventDefault();
-            selectCell(Math.max(0, selected < 0 ? 0 : selected - 9));
+            const next = Math.max(
+              0,
+              Math.min(80, (selected < 0 ? 0 : selected) + moves[e.key]),
+            );
+            selectCell(next);
           }
         });
 
-        // ── Load board ─────────────────────────────────────────────
         function loadBoard(digits) {
           board = [...digits];
           given = digits.map((v) => v !== 0);
           selected = -1;
-          celebrationEl.classList.remove("visible");
+          $celebrate.classList.remove("visible");
           renderBoard();
         }
 
-        // ── Show board panel ───────────────────────────────────────
-        function showBoardPanel() {
-          panelBoard.classList.add("visible");
-          panelUpload.style.display = "none";
+        function showBoard() {
+          $board.classList.add("visible");
+          $upload.style.display = "none";
         }
 
-        // ── OCR: upload → backend ──────────────────────────────────
+        // ── OCR ──────────────────────────────────────────────────────────────────
         async function handleFile(file) {
           if (!file || !file.type.startsWith("image/")) {
-            setStatus("error", "Please upload a valid image (JPEG, PNG, BMP).");
+            setStatus("error", "Please upload a valid image file.");
             return;
           }
-
           setStatus(
             "loading",
-            "Running OCR pipeline — detecting grid & classifying digits…",
+            "Running OCR pipeline — detecting grid and classifying digits…",
           );
-
           const formData = new FormData();
           formData.append("image", file);
-
           try {
             const res = await fetch(`${API}/api/ocr`, {
               method: "POST",
               body: formData,
             });
             const data = await res.json();
-
             if (!res.ok || data.error) {
               setStatus(
                 "error",
-                "✕ " +
-                  (data.error || "OCR failed. Try a clearer, well-lit image."),
+                data.error || "OCR failed. Try a clearer image.",
               );
               return;
             }
-
             loadBoard(data.board);
             setOcrBadge(data.mode || "knn");
             setPills(2);
-            showBoardPanel();
+            showBoard();
             setStatus(
               "success",
-              `✓ OCR complete — ${data.digit_count} digits detected (${data.mode === "cnn" ? "CNN model" : "kNN fallback"}). ` +
-                `Click any wrong cell to correct it, then press Solve.`,
+              `OCR complete — ${data.digit_count} digits detected (${data.mode === "cnn" ? "CNN model" : "kNN fallback"}).`,
             );
           } catch (err) {
-            console.warn("Backend unreachable:", err.message);
-            // Fallback demo
+            // Demo fallback
             const demo = [
               5, 3, 0, 0, 7, 0, 0, 0, 0, 6, 0, 0, 1, 9, 5, 0, 0, 0, 0, 9, 8, 0,
               0, 0, 0, 6, 0, 8, 0, 0, 0, 6, 0, 0, 0, 3, 4, 0, 0, 8, 0, 3, 0, 0,
@@ -903,22 +1180,21 @@
             loadBoard(demo);
             setOcrBadge("knn");
             setPills(2);
-            showBoardPanel();
+            showBoard();
             setStatus(
               "error",
-              "⚠ Backend not connected — loaded demo puzzle. Start Flask server with: python app.py",
+              "⚠ Backend offline — loaded demo puzzle. Run: python app.py",
             );
           }
         }
 
-        // ── Solve ──────────────────────────────────────────────────
+        // ── Solve ─────────────────────────────────────────────────────────────────
         async function solve() {
           setStatus("loading", "Solving…", true);
-          celebrationEl.classList.remove("visible");
+          $celebrate.classList.remove("visible");
           document
             .querySelectorAll(".cell.conflict")
             .forEach((c) => c.classList.remove("conflict"));
-
           try {
             const res = await fetch(`${API}/api/solve`, {
               method: "POST",
@@ -927,7 +1203,7 @@
             });
             const data = await res.json();
             handleSolveResult(data);
-          } catch (err) {
+          } catch (e) {
             handleSolveResult(clientSolve([...board]));
           }
         }
@@ -937,44 +1213,40 @@
             board = data.board;
             renderBoard();
             for (let i = 0; i < 81; i++) {
-              if (!given[i] && board[i] !== 0) {
+              if (!given[i] && board[i]) {
                 const c = document.getElementById("cell-" + i);
                 if (c) {
                   c.classList.add("solved-fill");
-                  c.style.animationDelay = i * 6 + "ms";
+                  c.style.animationDelay = i * 7 + "ms";
                 }
               }
             }
-            celebrationEl.classList.add("visible");
-            correctionNote.classList.remove("visible");
+            $celebrate.classList.add("visible");
+            $tip.classList.remove("visible");
             setStatus(
               "success",
-              "✓ Solved! All 81 cells filled correctly.",
+              "Puzzle solved — all 81 cells filled correctly.",
               true,
             );
             setPills(3);
           } else {
-            if (data.conflicts) {
-              data.conflicts.forEach(([a, b]) => {
-                document.getElementById("cell-" + a)?.classList.add("conflict");
-                document.getElementById("cell-" + b)?.classList.add("conflict");
-              });
-            }
+            (data.conflicts || []).forEach(([a, b]) => {
+              document.getElementById("cell-" + a)?.classList.add("conflict");
+              document.getElementById("cell-" + b)?.classList.add("conflict");
+            });
             setStatus(
               "error",
-              "✕ " +
-                (data.error ||
-                  "No solution — check red-highlighted cells for errors."),
+              data.error || "No solution — check red cells for errors.",
               true,
             );
           }
         }
 
-        // ── Client-side backtracking solver (fallback) ─────────────
+        // ── Client-side solver (fallback) ─────────────────────────────────────────
         function clientSolve(b) {
-          function ok(b, idx, v) {
-            const r = Math.floor(idx / 9),
-              c = idx % 9;
+          function ok(b, i, v) {
+            const r = Math.floor(i / 9),
+              c = i % 9;
             for (let j = 0; j < 9; j++) {
               if (b[r * 9 + j] === v && j !== c) return false;
               if (b[j * 9 + c] === v && j !== r) return false;
@@ -984,11 +1256,11 @@
             for (let dr = 0; dr < 3; dr++)
               for (let dc = 0; dc < 3; dc++) {
                 const ni = (br + dr) * 9 + (bc + dc);
-                if (ni !== idx && b[ni] === v) return false;
+                if (ni !== i && b[ni] === v) return false;
               }
             return true;
           }
-          // Conflict check first
+          // Check conflicts
           const conflicts = [];
           for (let i = 0; i < 81; i++) {
             if (!b[i]) continue;
@@ -1006,7 +1278,7 @@
               solved: false,
               board: b,
               conflicts,
-              error: "Conflicting digits — check highlighted cells.",
+              error: "Conflicting digits.",
             };
           function bt(b) {
             const e = b.indexOf(0);
@@ -1025,19 +1297,21 @@
             solved,
             board: b,
             conflicts: [],
-            error: solved ? null : "No valid solution exists for this puzzle.",
+            error: solved ? null : "No valid solution exists.",
           };
         }
 
-        // ── Reset / Clear ──────────────────────────────────────────
+        // ── Reset / Clear ─────────────────────────────────────────────────────────
         function resetToGiven() {
           for (let i = 0; i < 81; i++) if (!given[i]) board[i] = 0;
           selected = -1;
-          celebrationEl.classList.remove("visible");
+          $celebrate.classList.remove("visible");
           document
             .querySelectorAll(".cell")
-            .forEach((c) => c.classList.remove("conflict", "solved-fill"));
-          correctionNote.classList.add("visible");
+            .forEach((c) =>
+              c.classList.remove("conflict", "solved-fill", "user-filled"),
+            );
+          $tip.classList.add("visible");
           setStatus("success", "Board reset to OCR result.", true);
           renderBoard();
         }
@@ -1046,27 +1320,32 @@
           board = Array(81).fill(0);
           given = Array(81).fill(false);
           selected = -1;
-          celebrationEl.classList.remove("visible");
+          $celebrate.classList.remove("visible");
           document
             .querySelectorAll(".cell")
             .forEach((c) =>
-              c.classList.remove("conflict", "solved-fill", "given"),
+              c.classList.remove(
+                "conflict",
+                "solved-fill",
+                "user-filled",
+                "given",
+              ),
             );
-          renderBoard();
           setStatus("", "", true);
+          renderBoard();
         }
 
         function uploadNew() {
           clearAll();
-          panelBoard.classList.remove("visible");
-          panelUpload.style.display = "";
+          $board.classList.remove("visible");
+          $upload.style.display = "";
           setStatus("idle", "Waiting for image upload…");
           setPills(1);
           fileInput.value = "";
-          correctionNote.classList.add("visible");
+          $tip.classList.add("visible");
         }
 
-        // ── Drag & drop ────────────────────────────────────────────
+        // ── Drag & drop ───────────────────────────────────────────────────────────
         uploadZone.addEventListener("dragover", (e) => {
           e.preventDefault();
           uploadZone.classList.add("drag-over");
@@ -1083,24 +1362,15 @@
           handleFile(e.target.files[0]),
         );
 
-        // ── Check backend health on load ───────────────────────────
+        // ── Health check on load ──────────────────────────────────────────────────
         (async () => {
           try {
-            const r = await fetch(`${API}/api/health`);
-            const d = await r.json();
-            if (d.model_ready) {
-              setOcrBadge("cnn");
-              document.getElementById("ocr-mode-badge").style.display = "flex";
-            } else {
-              setOcrBadge("knn");
-              document.getElementById("ocr-mode-badge").style.display = "flex";
-            }
-          } catch (e) {
-            /* backend offline */
-          }
+            const d = await (await fetch(`${API}/api/health`)).json();
+            setOcrBadge(d.model_ready ? "cnn" : "knn");
+            document.getElementById("ocr-badge").style.display = "flex";
+          } catch (e) {}
         })();
 
-        // ── Init ───────────────────────────────────────────────────
         buildGrid();
         buildNumpad();
         renderBoard();

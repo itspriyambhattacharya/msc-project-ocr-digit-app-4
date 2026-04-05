@@ -1,26 +1,25 @@
 """
 backend/train.py
 ================
-Train DigitCNN on MNIST + printed-digit augmentations.
+Train DigitCNN on MNIST + heavy augmentation for printed AND digital sudoku.
 
-The key problem was: CNN trained ONLY on handwritten MNIST digits, then
-asked to classify PRINTED newspaper digits — completely different visual style.
+Key improvements over previous version:
+  1. InvertedMNISTDataset — trains on BLACK digit on WHITE bg (matches OCR output).
+  2. PrintedDigitTransform — simulates newspaper print: sharpening, high contrast,
+     thinning, slight rotation. Fixes 7-vs-1 confusion by preserving thin strokes.
+  3. DigitalSudokuTransform — simulates digital sudoku: uniform stroke width,
+     crisp edges, various background shades (white/blue/grey).
+  4. More training epochs (30) + cosine LR schedule.
+  5. Label smoothing in CrossEntropyLoss to prevent overconfident wrong predictions.
 
-Fix: Heavy augmentation pipeline that simulates printed text:
-  - Morphological operations (thinning/thickening strokes)
-  - Sharpening (printed digits have sharp edges)
-  - Low-blur (printed digits are crisp, not blurry like handwriting)
-  - High-contrast transforms
-  - Affine transforms (slight rotation, scale, translate)
-
-HOW TO RUN — from inside backend\ folder:
+HOW TO RUN (from inside backend\ folder):
     python train.py
 
 Saves: backend\model_weights\digit_cnn.pth
 """
 
 from model import DigitCNN
-from PIL import Image, ImageFilter, ImageEnhance
+from PIL import Image, ImageFilter, ImageEnhance, ImageOps
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, ConcatDataset, Dataset
 import torch.optim as optim
@@ -43,125 +42,187 @@ if _BACKEND_DIR not in sys.path:
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 128
-EPOCHS = 4
+EPOCHS = 30
 LR = 1e-3
 
 
-# ── Custom augmentation that simulates printed newspaper digits ────────────────
+# ── Base transform ─────────────────────────────────────────────────────────────
+_to_tensor_norm = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,)),
+])
 
-class PrintedDigitTransform:
-    """
-    Augmentation pipeline designed to bridge the gap between
-    handwritten MNIST digits and printed newspaper/puzzle digits.
-    """
 
-    def __call__(self, img):
-        # img is a PIL Image (grayscale, 28x28, white digit on black bg from MNIST)
-        img = img.convert("L")
-
-        # 1. Random resize (printed digits vary in size within cell)
-        scale = random.uniform(0.75, 1.0)
-        new_size = max(10, int(28 * scale))
-        img = img.resize((new_size, new_size), Image.LANCZOS)
-
-        # 2. Place on 28x28 canvas centred (simulate digit position in cell)
-        canvas = Image.new("L", (28, 28), 0)
-        offset_x = (28 - new_size) // 2 + random.randint(-2, 2)
-        offset_y = (28 - new_size) // 2 + random.randint(-2, 2)
-        offset_x = max(0, min(28 - new_size, offset_x))
-        offset_y = max(0, min(28 - new_size, offset_y))
-        canvas.paste(img, (offset_x, offset_y))
-        img = canvas
-
-        # 3. Sharpening — printed digits have crisp edges
-        if random.random() > 0.3:
-            img = img.filter(ImageFilter.SHARPEN)
-
-        # 4. High contrast — printed ink is very dark on white
-        if random.random() > 0.4:
-            enhancer = ImageEnhance.Contrast(img)
-            img = enhancer.enhance(random.uniform(1.5, 3.0))
-
-        # 5. Slight rotation (±5 degrees) — newspaper printing is rarely perfect)
-        if random.random() > 0.5:
-            angle = random.uniform(-5, 5)
-            img = img.rotate(angle, fillcolor=0)
-
-        # 6. Convert to tensor and normalize (MNIST stats)
-        tensor = transforms.ToTensor()(img)
-        tensor = transforms.Normalize((0.1307,), (0.3081,))(tensor)
-        return tensor
-
+# ── Dataset wrapper: inverts MNIST to BLACK digit on WHITE bg ──────────────────
 
 class InvertedMNISTDataset(Dataset):
     """
-    MNIST images with inverted colors: BLACK digit on WHITE background.
-    This matches what our OCR pipeline produces before feeding to CNN.
+    MNIST is WHITE digit on BLACK. Our OCR pipeline outputs BLACK digit on WHITE.
+    This wrapper inverts the colours so training matches inference.
     """
 
-    def __init__(self, mnist_dataset, extra_transform=None):
-        self.ds = mnist_dataset
+    def __init__(self, mnist_ds, extra_transform=None):
+        self.ds = mnist_ds
         self.extra_transform = extra_transform
 
-    def __len__(self):
-        return len(self.ds)
+    def __len__(self): return len(self.ds)
 
     def __getitem__(self, idx):
-        img_tensor, label = self.ds[idx]
-        # MNIST is WHITE digit on BLACK → invert to BLACK digit on WHITE
-        img_tensor = 1.0 - img_tensor
-        if self.extra_transform is not None:
-            # Convert back to PIL for the custom transform
-            img_pil = transforms.ToPILImage()(img_tensor)
-            img_tensor = self.extra_transform(img_pil)
+        img_t, label = self.ds[idx]
+        img_t = 1.0 - img_t           # invert: now BLACK digit on WHITE
+        if self.extra_transform:
+            pil = transforms.ToPILImage()(img_t)
+            img_t = self.extra_transform(pil)
         else:
-            img_tensor = transforms.Normalize((0.1307,), (0.3081,))(img_tensor)
-        return img_tensor, label
+            img_t = transforms.Normalize((0.1307,), (0.3081,))(img_t)
+        return img_t, label
 
+
+# ── Augmentation 1: Printed newspaper digit ────────────────────────────────────
+
+class PrintedDigitTransform:
+    """
+    Simulates newspaper/book printed sudoku digits.
+    Key: preserves thin diagonal strokes (crucial for correct 7 vs 1 distinction).
+    """
+
+    def __call__(self, pil_img):
+        img = pil_img.convert("L")
+
+        # Random scale — printed digits vary in size
+        scale = random.uniform(0.70, 1.0)
+        new_size = max(10, int(28 * scale))
+        img = img.resize((new_size, new_size), Image.LANCZOS)
+
+        # Centre on 28×28 canvas with small random offset
+        canvas = Image.new("L", (28, 28), 0)
+        ox = (28 - new_size) // 2 + random.randint(-2, 2)
+        oy = (28 - new_size) // 2 + random.randint(-2, 2)
+        ox = max(0, min(28 - new_size, ox))
+        oy = max(0, min(28 - new_size, oy))
+        canvas.paste(img, (ox, oy))
+        img = canvas
+
+        # Sharpen — printed strokes are crisp (important for 7's diagonal)
+        if random.random() > 0.2:
+            img = img.filter(ImageFilter.SHARPEN)
+
+        # High contrast
+        if random.random() > 0.3:
+            img = ImageEnhance.Contrast(img).enhance(random.uniform(1.5, 3.0))
+
+        # Slight rotation
+        if random.random() > 0.4:
+            img = img.rotate(random.uniform(-6, 6), fillcolor=0)
+
+        # Slight shear (simulates tilted newspaper scan)
+        if random.random() > 0.6:
+            img = img.transform(
+                (28, 28), Image.AFFINE,
+                (1, random.uniform(-0.1, 0.1), 0,
+                 random.uniform(-0.1, 0.1), 1, 0),
+                fillcolor=0)
+
+        t = transforms.ToTensor()(img)
+        return transforms.Normalize((0.1307,), (0.3081,))(t)
+
+
+# ── Augmentation 2: Digital sudoku digit ───────────────────────────────────────
+
+class DigitalSudokuTransform:
+    """
+    Simulates digital sudoku app images: uniform strokes, clean edges,
+    various background shades (white/light-blue/grey highlighted cells).
+    The CNN must handle these because many users photograph their phone screen.
+    """
+
+    def __call__(self, pil_img):
+        img = pil_img.convert("L")
+
+        # Random scale (digital digits are often a bit smaller in their cell)
+        scale = random.uniform(0.60, 0.90)
+        new_size = max(10, int(28 * scale))
+        img = img.resize((new_size, new_size), Image.LANCZOS)
+
+        # Binarise to make it look like a digital font
+        threshold = random.randint(50, 150)
+        img = img.point(lambda p: 255 if p > threshold else 0)
+
+        # Centre on canvas
+        canvas = Image.new("L", (28, 28), 0)
+        ox = (28 - new_size) // 2
+        oy = (28 - new_size) // 2
+        canvas.paste(img, (ox, oy))
+        img = canvas
+
+        # Slight rotation (photo of screen is never perfectly straight)
+        if random.random() > 0.5:
+            img = img.rotate(random.uniform(-3, 3), fillcolor=0)
+
+        t = transforms.ToTensor()(img)
+        return transforms.Normalize((0.1307,), (0.3081,))(t)
+
+
+# ── Standard geometric augmentation ───────────────────────────────────────────
+
+class GeometricTransform:
+    def __call__(self, pil_img):
+        t = transforms.RandomAffine(
+            degrees=5,
+            translate=(0.08, 0.08),
+            scale=(0.85, 1.1)
+        )(pil_img)
+        t = transforms.ToTensor()(t)
+        return transforms.Normalize((0.1307,), (0.3081,))(t)
+
+
+# ── Build datasets ─────────────────────────────────────────────────────────────
 
 def _get_loaders():
     os.makedirs(_DATA_DIR, exist_ok=True)
 
-    # Base MNIST — inverted (black digit on white)
-    base_mnist = datasets.MNIST(_DATA_DIR, train=True, download=True,
-                                transform=transforms.ToTensor())
-    base_ds = InvertedMNISTDataset(base_mnist)
-
-    # Augmented with printed-digit simulation
-    aug_mnist = datasets.MNIST(_DATA_DIR, train=True, download=True,
+    raw_train = datasets.MNIST(_DATA_DIR, train=True,  download=True,
                                transform=transforms.ToTensor())
-    aug_ds = InvertedMNISTDataset(
-        aug_mnist, extra_transform=PrintedDigitTransform())
+    raw_test = datasets.MNIST(_DATA_DIR, train=False, download=True,
+                              transform=transforms.ToTensor())
 
-    # Standard augmentation (geometric)
-    geo_transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.RandomAffine(degrees=5, translate=(
-            0.08, 0.08), scale=(0.85, 1.1)),
-        transforms.Normalize((0.1307,), (0.3081,)),
+    # Dataset variants
+    base_ds = InvertedMNISTDataset(raw_train)
+    printed_ds = InvertedMNISTDataset(
+        datasets.MNIST(_DATA_DIR, train=True, download=True,
+                       transform=transforms.ToTensor()),
+        extra_transform=PrintedDigitTransform())
+    digital_ds = InvertedMNISTDataset(
+        datasets.MNIST(_DATA_DIR, train=True, download=True,
+                       transform=transforms.ToTensor()),
+        extra_transform=DigitalSudokuTransform())
+    geo_ds = InvertedMNISTDataset(
+        datasets.MNIST(_DATA_DIR, train=True, download=True,
+                       transform=transforms.ToTensor()),
+        extra_transform=GeometricTransform())
+    test_ds = InvertedMNISTDataset(raw_test)
+
+    # Combine: printed×2 and digital×2 to weight them higher
+    train_ds = ConcatDataset([
+        base_ds,
+        printed_ds, printed_ds,    # 2× printed weight
+        digital_ds, digital_ds,    # 2× digital weight
+        geo_ds,
     ])
-    geo_mnist = datasets.MNIST(
-        _DATA_DIR, train=True, download=True, transform=geo_transform)
-    # Note: geo_mnist uses original (white-on-black) then we invert
-    geo_ds = InvertedMNISTDataset(geo_mnist)
 
-    train_ds = ConcatDataset([base_ds, aug_ds, aug_ds]
-                             )  # 2x printed aug weight
-
-    test_mnist = datasets.MNIST(_DATA_DIR, train=False, download=True,
-                                transform=transforms.ToTensor())
-    test_ds = InvertedMNISTDataset(test_mnist)
-
-    train_loader = DataLoader(
-        train_ds, batch_size=BATCH_SIZE, shuffle=True,  num_workers=0)
-    test_loader = DataLoader(
-        test_ds,  batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
+    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE,
+                              shuffle=True,  num_workers=0, pin_memory=False)
+    test_loader = DataLoader(test_ds,  batch_size=BATCH_SIZE,
+                             shuffle=False, num_workers=0, pin_memory=False)
     return train_loader, test_loader
 
 
+# ── Training loop ──────────────────────────────────────────────────────────────
+
 def train():
     print(f"\n{'='*55}")
-    print(f"  Training DigitCNN  (printed-digit augmentation)")
+    print(f"  Training DigitCNN")
+    print(f"  Printed + Digital sudoku augmentation")
     print(f"{'='*55}")
     print(f"  Device     : {DEVICE}")
     print(f"  Data dir   : {_DATA_DIR}")
@@ -173,8 +234,10 @@ def train():
     os.makedirs(_WEIGHTS_DIR, exist_ok=True)
 
     model = DigitCNN().to(DEVICE)
-    criterion = nn.CrossEntropyLoss()
+    # Label smoothing reduces overconfident wrong predictions
+    criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
     optimizer = optim.Adam(model.parameters(), lr=LR, weight_decay=1e-4)
+    # Cosine annealing — decays LR smoothly, better generalisation
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
 
     train_loader, test_loader = _get_loaders()
@@ -216,10 +279,10 @@ def train():
         if val_acc > best_acc:
             best_acc = val_acc
             torch.save(model.state_dict(), _SAVE_PATH)
-            print(f"    Saved (val={val_acc:.2f}%)")
+            print(f"    ✓ Saved best model  (val={val_acc:.2f}%)")
 
-    print(f"\n  Done. Best val accuracy : {best_acc:.2f}%")
-    print(f"  Weights at             : {_SAVE_PATH}\n")
+    print(f"\n  Training complete. Best val accuracy: {best_acc:.2f}%")
+    print(f"  Model saved to: {_SAVE_PATH}\n")
 
 
 if __name__ == "__main__":
